@@ -32,3 +32,6 @@
     }
 }
 ```
+
+## Example 
+![Example](https://raw.githubusercontent.com/ZSU-GG-Reforger/ReforgerJS-Discord-Stats/master/StatsExample.png)
