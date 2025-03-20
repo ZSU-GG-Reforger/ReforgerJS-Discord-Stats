@@ -145,7 +145,8 @@ class StatsEmbed {
       if (embedConfig.footer) {
         embed.setFooter({ text: embedConfig.footer });
       }
-      if (embedConfig.thumbnail && embedConfig.thumbnailURL) {
+      // FIX: Check if thumbnail is specifically true (not just truthy)
+      if (embedConfig.thumbnail === true && embedConfig.thumbnailURL) {
         embed.setThumbnail(embedConfig.thumbnailURL);
       }
       const message = await this.channel.send({ embeds: [embed] });
@@ -329,7 +330,8 @@ class StatsEmbed {
       if (embedConfig.footer) {
         embed.setFooter({ text: embedConfig.footer });
       }
-      if (embedConfig.thumbnail && embedConfig.thumbnailURL) {
+      // FIX: Check if thumbnail is specifically true (not just truthy)
+      if (embedConfig.thumbnail === true && embedConfig.thumbnailURL) {
         embed.setThumbnail(embedConfig.thumbnailURL);
       }
 
