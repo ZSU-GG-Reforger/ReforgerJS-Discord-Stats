@@ -1,7 +1,7 @@
 # ReforgerJS-Discord-Stats
 
 ## Requirements
-- ReforgerJS (1.0.0+)
+- ReforgerJS (1.4.0+)
 - ReforgerJS DBLog Plugin
 - ReforgerJS DBLogStats Plugin
 

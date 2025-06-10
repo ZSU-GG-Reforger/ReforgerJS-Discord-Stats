@@ -13,7 +13,7 @@ class StatsEmbed {
     this.message = null;
     this.statsTable = null;
     this.playersTable = null;
-    this.ignoreList = []; // Holds the array of playerUIDs to ignore.
+    this.ignoreList = []; 
   }
 
   async prepareToMount(serverInstance, discordClient) {
@@ -27,7 +27,6 @@ class StatsEmbed {
         return;
       }
 
-      // Validate StatsEmbed configuration.
       const pluginConfig = this.config.plugins.find(p => p.plugin === "StatsEmbed");
       if (!pluginConfig || !pluginConfig.enabled) {
         logger.warn(`[${this.name}] Plugin is disabled in the configuration.`);
@@ -39,7 +38,6 @@ class StatsEmbed {
       }
       this.channelId = pluginConfig.channel;
 
-      // Retrieve table names from configuration.
       if (!pluginConfig.statsTable) {
         logger.error(`[${this.name}] statsTable not specified in configuration.`);
         return;
@@ -51,10 +49,8 @@ class StatsEmbed {
       this.statsTable = pluginConfig.statsTable;
       this.playersTable = pluginConfig.playersTable;
 
-      // Retrieve the ignore list from configuration (if provided).
       this.ignoreList = pluginConfig.ignoreList || [];
 
-      // Check that the required tables exist.
       let [playersTableResult] = await process.mysqlPool.query("SHOW TABLES LIKE ?", [this.playersTable]);
       if (!playersTableResult || playersTableResult.length === 0) {
         logger.error(`[${this.name}] Required table '${this.playersTable}' does not exist.`);
@@ -66,7 +62,6 @@ class StatsEmbed {
         return;
       }
 
-      // Fetch the guild and channel/thread.
       const guild = await this.discordClient.guilds.fetch(
         this.config.connectors.discord.guildId,
         { cache: true, force: true }
@@ -100,8 +95,6 @@ class StatsEmbed {
         return;
       }
 
-      // Handle message ID: if a non-empty messageID exists, try to fetch it.
-      // Otherwise, post a new embed.
       if (pluginConfig.messageID && pluginConfig.messageID.trim().length > 0) {
         try {
           this.message = await this.channel.messages.fetch(pluginConfig.messageID);
@@ -113,10 +106,8 @@ class StatsEmbed {
         this.message = await this.postInitialEmbed();
       }
 
-      // Immediately update the embed.
       await this.updateEmbed();
 
-      // Start the update interval.
       const intervalMinutes = pluginConfig.interval || 5;
       this.interval = setInterval(() => this.updateEmbed(), intervalMinutes * 60 * 1000);
       logger.info(`[${this.name}] Initialized and updating embed every ${intervalMinutes} minutes.`);
@@ -145,13 +136,11 @@ class StatsEmbed {
       if (embedConfig.footer) {
         embed.setFooter({ text: embedConfig.footer });
       }
-      // FIX: Check if thumbnail is specifically true (not just truthy)
       if (embedConfig.thumbnail === true && embedConfig.thumbnailURL) {
         embed.setThumbnail(embedConfig.thumbnailURL);
       }
       const message = await this.channel.send({ embeds: [embed] });
       logger.verbose(`[${this.name}] Posted initial embed with message ID: ${message.id}`);
-      // Save the message ID to the config.
       if (pluginConfig) {
         pluginConfig.messageID = message.id;
         await this.saveConfig();
@@ -176,10 +165,8 @@ class StatsEmbed {
 
   async updateEmbed() {
     try {
-      // Helper function to format numbers with commas.
       const formatNumber = (num) => Number(num).toLocaleString('en-US');
 
-      // Retrieve overall stats.
       const [playersRows] = await process.mysqlPool.query(
         `SELECT COUNT(*) AS total_players FROM \`${this.playersTable}\``
       );
@@ -207,15 +194,13 @@ class StatsEmbed {
       const totalDistanceMeters = distanceRows[0].total_distance || 0;
       const totalDistanceKm = (totalDistanceMeters / 1000).toFixed(2);
 
-      // Format overall stats with commas.
       const totalPlayersFormatted = formatNumber(totalPlayers);
       const totalPlayerKillsFormatted = formatNumber(totalPlayerKills);
       const totalPlayerDeathsFormatted = formatNumber(totalPlayerDeaths);
       const totalAIKillsFormatted = formatNumber(totalAIKills);
       const totalShotsFormatted = formatNumber(totalShots);
-      const totalDistanceKmFormatted = totalDistanceKm; // Keep two decimals
+      const totalDistanceKmFormatted = totalDistanceKm; 
 
-      // Build the ignore clause and parameters for SQL queries.
       const ignoreClause = (this.ignoreList && this.ignoreList.length > 0)
         ? `WHERE playerUID NOT IN (${this.ignoreList.map(() => '?').join(',')})`
         : "";
@@ -223,33 +208,31 @@ class StatsEmbed {
         ? this.ignoreList
         : [];
 
-      // Retrieve top 5 players for each stat category, applying the ignore list.
       const [playtimeResults] = await process.mysqlPool.query(
-        `SELECT playerUID, session_duration FROM \`${this.statsTable}\` ${ignoreClause} ORDER BY session_duration DESC LIMIT 5`,
+        `SELECT playerUID, SUM(session_duration) as session_duration FROM \`${this.statsTable}\` ${ignoreClause} GROUP BY playerUID ORDER BY session_duration DESC LIMIT 5`,
         ignoreParams
       );
       const [topKillsResults] = await process.mysqlPool.query(
-        `SELECT playerUID, kills FROM \`${this.statsTable}\` ${ignoreClause} ORDER BY kills DESC LIMIT 5`,
+        `SELECT playerUID, SUM(kills) as kills FROM \`${this.statsTable}\` ${ignoreClause} GROUP BY playerUID ORDER BY kills DESC LIMIT 5`,
         ignoreParams
       );
       const [topDeathsResults] = await process.mysqlPool.query(
-        `SELECT playerUID, deaths FROM \`${this.statsTable}\` ${ignoreClause} ORDER BY deaths DESC LIMIT 5`,
+        `SELECT playerUID, SUM(deaths) as deaths FROM \`${this.statsTable}\` ${ignoreClause} GROUP BY playerUID ORDER BY deaths DESC LIMIT 5`,
         ignoreParams
       );
       const [topRoadkillsResults] = await process.mysqlPool.query(
-        `SELECT playerUID, roadkills FROM \`${this.statsTable}\` ${ignoreClause} ORDER BY roadkills DESC LIMIT 5`,
+        `SELECT playerUID, SUM(roadkills) as roadkills FROM \`${this.statsTable}\` ${ignoreClause} GROUP BY playerUID ORDER BY roadkills DESC LIMIT 5`,
         ignoreParams
       );
       const [medicsResults] = await process.mysqlPool.query(
-        `SELECT playerUID, (bandage_friendlies + tourniquet_friendlies + saline_friendlies + morphine_friendlies) AS medics FROM \`${this.statsTable}\` ${ignoreClause} ORDER BY medics DESC LIMIT 5`,
+        `SELECT playerUID, SUM(bandage_friendlies + tourniquet_friendlies + saline_friendlies + morphine_friendlies) AS medics FROM \`${this.statsTable}\` ${ignoreClause} GROUP BY playerUID ORDER BY medics DESC LIMIT 5`,
         ignoreParams
       );
       const [busDriverResults] = await process.mysqlPool.query(
-        `SELECT playerUID, points_as_driver_of_players FROM \`${this.statsTable}\` ${ignoreClause} ORDER BY points_as_driver_of_players DESC LIMIT 5`,
+        `SELECT playerUID, SUM(points_as_driver_of_players) as points_as_driver_of_players FROM \`${this.statsTable}\` ${ignoreClause} GROUP BY playerUID ORDER BY points_as_driver_of_players DESC LIMIT 5`,
         ignoreParams
       );
 
-      // Helper: get player name.
       const playersTable = this.playersTable;
       const getPlayerName = async (playerUID) => {
         try {
@@ -263,7 +246,6 @@ class StatsEmbed {
         }
       };
 
-      // Helper: convert seconds to HH:MM:SS.
       const secondsToHMS = (seconds) => {
         seconds = Number(seconds);
         const h = Math.floor(seconds / 3600);
@@ -272,7 +254,6 @@ class StatsEmbed {
         return [h, m, s].map(v => v < 10 ? "0" + v : v).join(":");
       };
 
-      // Helper: build field string.
       const buildFieldString = async (results, statKey, label, isTime = false) => {
         let lines = [];
         let rank = 1;
@@ -297,15 +278,12 @@ class StatsEmbed {
       const medicsField = await buildFieldString(medicsResults, "medics", "Points");
       const busDriversField = await buildFieldString(busDriverResults, "points_as_driver_of_players", "Points");
 
-      // Add descriptions for the last three fields.
       const roadkillsDescription = "*Enemies killed with a vehicle*";
       const medicsDescription = "*Points for healing Friendlies*";
       const busDriversDescription = "*Points for driving other players*";
 
-      // Construct embed description.
       const description = `**Global Stats**\n---------------\n**🔸 Total Players:** ${totalPlayersFormatted}\n**🔸 Total Player Kills:** ${totalPlayerKillsFormatted}\n**🔸 Total Player Deaths:** ${totalPlayerDeathsFormatted}\n**🔸 Total AI Kills:** ${totalAIKillsFormatted}\n**🔸 Round Fired:** ${totalShotsFormatted}\n**🔸 Distance Walked:** ${totalDistanceKmFormatted} Km\n`;
 
-      // Build the embed.
       const embed = new EmbedBuilder()
         .setDescription(description)
         .addFields(
@@ -319,7 +297,6 @@ class StatsEmbed {
         )
         .setTimestamp();
 
-      // Apply embed configuration options.
       const embedConfig = this.config.plugins.find(p => p.plugin === "StatsEmbed").embed || {};
       if (embedConfig.title) {
         embed.setTitle(embedConfig.title);
@@ -330,7 +307,6 @@ class StatsEmbed {
       if (embedConfig.footer) {
         embed.setFooter({ text: embedConfig.footer });
       }
-      // FIX: Check if thumbnail is specifically true (not just truthy)
       if (embedConfig.thumbnail === true && embedConfig.thumbnailURL) {
         embed.setThumbnail(embedConfig.thumbnailURL);
       }
